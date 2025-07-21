@@ -1,0 +1,49 @@
+import subprocess
+import json
+from netaddr import IPNetwork, IPSet, IPRange
+
+#First we need to send Vnet details, like subscription_id, resource_group, vnet_name. On existent True flag, it encapsulate in json body
+
+def get_vnet_details(subscription_id, resource_group, vnet_name):
+    cmd = f'az network vnet show --name {vnet_name} --resource-group {resource_group} --subscription {subscription_id} --output json'
+    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    vnet_info = json.loads(result.stdout)
+    return vnet_info
+
+#Here I am sending captured value as vnet_info and extract address_Space and subnets using library netaddr to vnet and subnet IP ranges.
+#By doing vnet subtract subnet IP set; result is set of IP address which result available IP in Vnet
+
+def caluclate_available_ip_ranges(vnet_info):
+    address_space = vnet_info['addressSpace']['addressPrefixes']
+    subnets = vnet_info['subnets']
+    subnet_ranges = [subnet['addressPrefix'] for subnet in subnets]    
+    vnet_ip_set = IPSet(IPNetwork(range) for range in address_space)
+    subnet_ip_set = IPSet(IPNetwork(range) for range in subnet_ranges)
+    available_ip_set = vnet_ip_set - subnet_ip_set
+    return available_ip_set
+
+# Here, once we get available_IP_set in Vnet; we need to utilize cidr_sizes which required to identify available subnets.
+def check_available_subnets(available_ip_set, cidr_sizes):
+    for ip_range in available_ip_set.iter_cidrs():
+        print(ip_range)
+        for cidr_size in cidr_sizes:
+            subnets = list(ip_range.subnet(cidr_size))
+            available_subnets = [str(subnet) for subnet in subnets if subnet in available_ip_set]
+            if available_subnets:
+                print(f' Available /{cidr_size} subnets: {available_subnets}')
+
+  
+#Defining main block.  
+                
+if __name__=="__main__":
+    subscription_id = input("Enter Subscription id:")
+    resource_group = input("Enter Vnet Resource Group name:")
+    vnet_name = input("Enter Vnet name:")
+    
+    vnet_info = get_vnet_details(subscription_id, resource_group, vnet_name)
+    available_ip_set = caluclate_available_ip_ranges(vnet_info)
+    cidr_sizes_input = input ("Enter CIDR sizes (comma separated eg, 25,26,27,28,29):")
+    cidr_sizes = [int(size.strip()) for size in cidr_sizes_input.split(",")]
+    
+    print(f'Available IP range in Vnet {vnet_name}:')
+    check_available_subnets(available_ip_set,cidr_sizes)
