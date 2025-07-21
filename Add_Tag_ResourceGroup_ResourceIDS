@@ -1,0 +1,79 @@
+#What we are doing here; say you have resource group and in the resource group you have many services; now in your organization want to add certain tag so that they can perform cost optimzation.
+#using this code you can go ahead and apply tags to all resources inside resourcegroup.
+
+import os
+import subprocess
+
+
+def create_azure_tag(resource_ids, environment, portfolio, workload):
+    '''
+    Create Azure tags for a list of resources.
+    '''
+    for resource_id in resource_ids:
+        
+        if resource_id:
+            try:
+                # Create the Owner tag
+                os.system(f"az tag update --resource-id {resource_id} --operation merge --tags environment={environment}")
+
+                # Create the portfolio tag
+                os.system(f"az tag update --resource-id {resource_id} --operation merge --tags portfolio={portfolio}")
+
+                # Create the workload tag
+                os.system(f"az tag update --resource-id {resource_id} --operation merge --tags workload={workload}")
+
+                print(f"Tags updated for resource ID: {resource_id}")
+            except Exception as e:
+                print(f"Failed to update tags for resource ID: {resource_id}. Error: {e}")
+                
+def create_azure_tags(each, environment, portfolio, workload):
+    '''
+    Create Azure tags for a list of resources.
+    '''
+    
+    for resource_id in each:
+        
+        if resource_id:
+            try:
+                # Create the Owner tag
+                os.system(f"az tag update --resource-id {resource_id} --operation merge --tags environment={environment}")
+
+                # Create the portfolio tag
+                os.system(f"az tag update --resource-id {resource_id} --operation merge --tags portfolio={portfolio}")
+
+                # Create the workload tag
+                os.system(f"az tag update --resource-id {resource_id} --operation merge --tags workload={workload}")
+
+                print(f"Tags updated for resource ID: {resource_id}")
+            except Exception as e:
+                print(f"Failed to update tags for resource ID: {resource_id}. Error: {e}")
+
+
+if __name__ == "__main__":
+    
+    try:
+       environment = input("Enter environment(dev,test,uat,prod): ")
+       workload = input("EnterWorkload (example:Databricks):")
+       portfolio = input("Enter portfolio: ")
+       resource_ids = input("Enter Resource Group or Resource_ID separated by comma: ")
+       list_resources = resource_ids.split(",") #Here we are reading resource_id and RG and splitting in to list
+       print(list_resources)
+       for each in list_resources:
+           print(each)
+           if "/subscriptions/" in each:
+               print("It is a resource id")
+               create_azure_tags([each], environment, portfolio, workload)
+               
+           else:
+               print("It is a Resource Group Name")
+               resource_ids = f'az resource list --resource-group {each} --query "[].id" --output tsv' #it will drill down to get only id
+               print(resource_ids) # here it will display
+               os.system(resource_ids)
+               result = subprocess.run(resource_ids, shell=True, capture_output=True, text=True) # it capture the outbut in string
+               resource_ids = result.stdout.splitlines() #it splits output in to list
+               print(resource_ids) #now it will give in list separated by comma
+               create_azure_tag(resource_ids, environment, portfolio, workload)
+    except FileNotFoundError:
+        print(f"Resourcegruop and Resource_ID not found: {resource_ids, each}") #If file not found send error
+    except Exception as e:
+        print(f"An error occurred: {e}")
